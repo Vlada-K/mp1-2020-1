@@ -10,98 +10,81 @@ class SLAE : public Square_matrix<double> {
 // со спецификатором доступа public (сохраняются только поля и методы public и protected).
 // Конструкторы класса не копируются
 public:
-	SLAE() : Square_matrix<double>() { }
+    SLAE() : Square_matrix<double>() { }
 
-	SLAE(int dimension) : Square_matrix<double>(dimension) { }
+    explicit SLAE(int dimension) : Square_matrix<double>(dimension) { }
 
-	SLAE(std::initializer_list<Vector<double>> m) : Square_matrix<double>(m) { }
+    SLAE(const SLAE &m) = default;
 
-	SLAE(const SLAE& m) : Square_matrix<double>(m) { }
+    ~SLAE() = default;
 
-	~SLAE() = default;
+    /*
+     * Переставляет местами столбцы с индексами first_column и second_column */
+    void swap_columns(int first_column, int second_column) {
+        for (int i = 0; i < count; ++i) {
+            std::swap(array[i][first_column], array[i][second_column]);
+        }
+    }
 
-	/*
-	 * Переставляет местами строки с индексами first_row и second_row */
-	void swap_rows(int first_row, int second_row) 
-	{
-		for (int i = 0; i < count; ++i) 
-		{
-			std::swap(matrix[first_row], matrix[second_row]);
-		}
-	}
+    int get_max_row_element_index(int row_index) {
+        double max_element = 0;
+        int max_index = -1;
+        for (int i = 0; i < count; ++i) {
+            if ( fabs(array[row_index][i]) > max_element ) {
+                max_element = fabs(array[row_index][i]);
+                max_index = i;
+            }
+        }
+        return max_index;
+    }
 
-	/*
-	 * Переставляет местами столбцы с индексами first_column и second_column */
-	void swap_columns(int first_column, int second_column) 
-	{
-		for (int i = 0; i < count; ++i) 
-		{
-			std::swap(matrix[i][first_column], matrix[i][second_column]);
-		}
-	}
+    /*
+     * Решает систему линейных алгебраических уравнений модифицированным методом Гаусса */
+    Vector<double> solve_Gauss_method(Vector<double> b) {
+        SLAE A(*this);
 
-	int get_max_row_element_index(int row_index) 
-	{
-		double max_element = 0;
-		int max_index = -1;
-		for (int i = 0; i < count; ++i) 
-		{
-			if (fabs(matrix[row_index][i] > max_element)) 
-			{
-				max_element = fabs(matrix[row_index][i]);
-				max_index = i;
-			}
-		}
-		return max_index;
-	}
+        Vector<int> order(count);
+        for (int i = 0; i < count; ++i) {
+            order[i] = i;
+        }
 
-	void print() 
-	{
-		for (int i = 0; i < count; ++i) 
-		{
-			for (int j = 0; j < count; ++j) 
-			{
-				std::cout << matrix[i][j] << ' ';
-			}
-			std::cout << std::endl;
-		}
-	}
+        // Прямой ход метода Гаусса
+        for (int i = 0; i < count; ++i) {
+            int max_row_element = A.get_max_row_element_index(i);
+            A.swap_columns(i, max_row_element);
+            std::swap(b[i], b[max_row_element]);
+            std::swap(order[i], order[max_row_element]);
+            for (int j = i + 1; j < count; ++j) {
+                double coefficient = A[j][i] / A[i][i];
+                for (int k = i; k < count; ++k) {
+                    A[j][k] = A[j][k] - coefficient * A[i][k];
+                }
+                b[j] = b[j] - coefficient * b[i];
+            }
+        }
 
-	/*
-	 * Решает систему линейных алгебраических уравнений модифицированным методом Гаусса */
-	Vector<double> solve_Gauss_method(Vector<double> b) 
-	{
-		SLAE A(*this);
+        // Обратный ход метода Гаусса
+        for (int i = count - 1; i >= 0; --i) {
+            for (int j = i - 1; j >= 0; --j) {
+                double coefficient = A[j][i] / A[i][i];
+                for (int k = 0; k < count; ++k) {
+                    A[j][k] = A[j][k] - coefficient * A[i][k];
+                }
+                b[j] = b[j] - coefficient * b[i];
+            }
+            b[i] /= A[i][i];
+        }
 
-		// Прямой ход метода Гаусса
-		for (int i = 0; i < count; ++i) 
-		{
-			for (int j = i + 1; j < count; ++j) 
-			{
-				double coefficient = A[j][i] / A[i][i];
-				for (int k = i; k < count; ++k) 
-				{
-					A[j][k] = A[j][k] - coefficient * A[i][k];
-				}
-				b[j] = b[j] - coefficient * b[i];
-			}
-		}
+        // Перестановка переменных
+        for (int i = 0; i < count; ++i) {
+            int j = 0;
+            while (order[j] != i) {
+                ++j;
+            }
+            std::swap(order[i], order[j]);
+            std::swap(b[i], b[j]);
+        }
 
-		// Обратный ход метода Гаусса
-		for (int i = count - 1; i >= 0; --i) 
-		{
-			for (int j = i - 1; j >= 0; --j) 
-			{
-				double coefficient = A[j][i] / A[i][i];
-				for (int k = count - 1; k >= i; --k) 
-				{
-					A[j][k] = A[j][k] - coefficient * A[i][k];
-				}
-				b[j] = b[j] - coefficient * b[i];
-			}
-			b[i] /= A[i][i];
-		}
-
-		return b;
-	}
+        return b;
+    }
 };
